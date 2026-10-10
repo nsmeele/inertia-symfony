@@ -9,6 +9,7 @@ use Nsmeele\InertiaSymfony\Inertia;
 use Nsmeele\InertiaSymfony\Validation\ValidationErrors;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -51,9 +52,19 @@ final readonly class ValidationExceptionListener
             $request->headers->get(Header::ERROR_BAG),
         );
 
-        $event->setResponse(new RedirectResponse(
-            $request->headers->get('Referer') ?: $request->getUri(),
-            Response::HTTP_SEE_OTHER,
-        ));
+        $event->setResponse(new RedirectResponse($this->backUrl($request), Response::HTTP_SEE_OTHER));
+    }
+
+    /**
+     * The Referer, but only when it points to this host: it is client-controlled, so
+     * anything else would make this an open redirect.
+     */
+    private function backUrl(Request $request): string
+    {
+        $referer = (string) $request->headers->get('Referer');
+
+        return $referer !== '' && str_starts_with($referer.'/', $request->getSchemeAndHttpHost().'/')
+            ? $referer
+            : $request->getUri();
     }
 }

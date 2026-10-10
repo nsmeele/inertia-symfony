@@ -14,17 +14,23 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
+use Symfony\Contracts\Service\ResetInterface;
 use Twig\Environment;
 
 /**
  * Entry point for controllers: build Inertia page responses and share props.
  */
-class Inertia
+class Inertia implements ResetInterface
 {
     private const string ERRORS_FLASH = 'inertia.errors';
+    private const string CLEAR_HISTORY_FLASH = 'inertia.clear_history';
 
     /** @var array<string, mixed> */
     private array $shared = [];
+
+    private ?bool $encryptHistory = null;
+
+    private ?string $resolvedVersion = null;
 
     public function __construct(
         private readonly RequestStack $requestStack,
@@ -32,6 +38,8 @@ class Inertia
         private readonly PropsResolver $resolver,
         private readonly string $rootView = 'inertia/app.html.twig',
         private readonly ?string $version = null,
+        private readonly ?string $manifestPath = null,
+        private readonly bool $defaultEncryptHistory = false,
     ) {
     }
 
@@ -54,6 +62,14 @@ class Inertia
             'version' => $this->getVersion(),
             ...$metadata,
         ];
+
+        if ($this->encryptHistory ?? $this->defaultEncryptHistory) {
+            $page['encryptHistory'] = true;
+        }
+
+        if ($this->pullClearHistory($request)) {
+            $page['clearHistory'] = true;
+        }
 
         if ($request->headers->get(Header::INERTIA) !== null) {
             return new JsonResponse($page, 200, [Header::INERTIA => 'true']);
@@ -98,6 +114,14 @@ class Inertia
         return new RedirectResponse($url);
     }
 
+    private function pullClearHistory(Request $request): bool
+    {
+        $session = $request->hasSession() ? $request->getSession() : null;
+
+        return $session instanceof FlashBagAwareSessionInterface
+            && $session->getFlashBag()->get(self::CLEAR_HISTORY_FLASH) !== [];
+    }
+
     private function pullErrors(Request $request): array|\stdClass
     {
         $session = $request->hasSession() ? $request->getSession() : null;
@@ -109,9 +133,45 @@ class Inertia
         return $session->getFlashBag()->get(self::ERRORS_FLASH)[0] ?? new \stdClass();
     }
 
+    /**
+     * Encrypt this page in the browser's history state (use before rendering).
+     */
+    public function encryptHistory(bool $encrypt = true): void
+    {
+        $this->encryptHistory = $encrypt;
+    }
+
+    /**
+     * Drop the encrypted history of the current browser session on the next rendered page,
+     * e.g. after logging out. Survives a redirect.
+     */
+    public function clearHistory(): void
+    {
+        $session = $this->requestStack->getCurrentRequest()?->getSession();
+
+        if (!$session instanceof FlashBagAwareSessionInterface) {
+            throw new \LogicException('Clearing Inertia history requires a session.');
+        }
+
+        $session->getFlashBag()->set(self::CLEAR_HISTORY_FLASH, [true]);
+    }
+
+    /**
+     * Asset version: the configured `version`, else a hash of the Vite manifest, else empty.
+     */
     public function getVersion(): string
     {
-        return $this->version ?? '';
+        return $this->resolvedVersion ??= $this->version
+            ?? ($this->manifestPath !== null && is_file($this->manifestPath) ? (string) md5_file($this->manifestPath) : '');
+    }
+
+    /**
+     * Shared props live on the service, so clear them between requests in long-running runtimes.
+     */
+    public function reset(): void
+    {
+        $this->shared = [];
+        $this->encryptHistory = null;
     }
 
     public static function always(mixed $value): AlwaysProp

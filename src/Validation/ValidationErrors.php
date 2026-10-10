@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nsmeele\InertiaSymfony\Validation;
 
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 
 /**
@@ -24,6 +25,27 @@ final class ValidationErrors
         foreach ($violations as $violation) {
             $field = self::field($violation->getPropertyPath());
             $errors[$field] ??= (string) $violation->getMessage();
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Same map for a submitted Symfony form (requires symfony/form), keyed by the field's path in the form.
+     *
+     * @return array<string, string>
+     */
+    public static function fromForm(FormInterface $form): array
+    {
+        $errors = [];
+
+        foreach ($form->getErrors(true) as $error) {
+            $path = [];
+            for ($field = $error->getOrigin(); $field !== null && !$field->isRoot(); $field = $field->getParent()) {
+                array_unshift($path, $field->getName());
+            }
+
+            $errors[self::field(implode('.', $path))] ??= $error->getMessage();
         }
 
         return $errors;

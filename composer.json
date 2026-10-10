@@ -22,7 +22,8 @@
     },
     "suggest": {
         "symfony/validator": "Needed to turn #[MapRequestPayload], #[MapQueryString] and #[MapUploadedFile] validation failures into Inertia errors.",
-        "symfony/serializer": "Needed for #[MapRequestPayload] and #[MapQueryString]."
+        "symfony/serializer": "Needed for #[MapRequestPayload] and #[MapQueryString].",
+        "symfony/form": "Needed to flash Symfony form errors with ValidationErrors::fromForm()."
     },
     "autoload": {
         "psr-4": {
