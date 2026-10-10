@@ -11,10 +11,12 @@
     ],
     "require": {
         "php": ">=8.4",
+        "symfony/config": "^8.1",
+        "symfony/dependency-injection": "^8.1",
+        "symfony/event-dispatcher": "^8.1",
         "symfony/framework-bundle": "^8.1",
         "symfony/http-foundation": "^8.1",
         "symfony/http-kernel": "^8.1",
-        "symfony/event-dispatcher": "^8.1",
         "symfony/twig-bundle": "^8.1",
         "twig/twig": "^3.21"
     },
