@@ -17,14 +17,17 @@ final class InertiaExtension extends AbstractExtension
     }
 
     /**
+     * Inertia v3 reads the initial page from `<script data-page="{id}" type="application/json">`
+     * and mounts into `<div id="{id}">`. The JSON is not HTML-escaped, so `<`, `>` and `&`
+     * are escaped to keep it from closing the script element.
+     *
      * @param array<string, mixed> $page
      */
     public function render(array $page, string $id = 'app'): string
     {
-        return sprintf(
-            '<div id="%s" data-page="%s"></div>',
-            htmlspecialchars($id, ENT_QUOTES),
-            htmlspecialchars(json_encode($page, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), ENT_QUOTES),
-        );
+        $id = htmlspecialchars($id, ENT_QUOTES);
+        $json = json_encode($page, JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP);
+
+        return sprintf('<script data-page="%1$s" type="application/json">%2$s</script><div id="%1$s"></div>', $id, $json);
     }
 }

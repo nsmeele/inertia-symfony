@@ -31,7 +31,7 @@ final class InertiaSymfonyBundle extends AbstractBundle
                 ->scalarNode('version')->defaultNull()->info('Asset version; defaults to a hash of the Vite manifest.')->end()
                 ->scalarNode('manifest_path')->defaultValue('%kernel.project_dir%/public/build/.vite/manifest.json')->end()
                 ->booleanNode('encrypt_history')->defaultFalse()->end()
-                ->scalarNode('error_component')->defaultNull()->info('Page component rendered for HTTP errors outside debug mode.')->end()
+                ->scalarNode('error_component')->defaultNull()->info('Page component rendered for HTTP errors on Inertia requests, outside debug mode.')->end()
             ->end();
     }
 

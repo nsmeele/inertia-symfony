@@ -12,7 +12,8 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * Renders HTTP errors as an Inertia page, so error screens use the app's own layout.
+ * Renders HTTP errors as an Inertia page for Inertia requests only, so error screens use the app's own layout.
+ * Full page loads keep Symfony's server-rendered error pages, which work without JavaScript.
  * Registered only when `error_component` is configured; the debug error page stays in dev.
  */
 final readonly class ErrorPageListener
@@ -30,8 +31,7 @@ final readonly class ErrorPageListener
     {
         $request = $event->getRequest();
 
-        if ($this->debug || !$event->isMainRequest()
-            || ($request->headers->get(Header::INERTIA) === null && $request->getPreferredFormat('html') !== 'html')) {
+        if ($this->debug || !$event->isMainRequest() || $request->headers->get(Header::INERTIA) === null) {
             return;
         }
 
@@ -39,11 +39,8 @@ final readonly class ErrorPageListener
         $http = $exception instanceof HttpExceptionInterface ? $exception : null;
         $status = $http?->getStatusCode() ?? 500;
 
-        $response = $this->inertia->render($this->component, [
-            'status' => $status,
-            // Never expose the message of unexpected errors.
-            'message' => $http !== null && $status < 500 ? $exception->getMessage() : '',
-        ]);
+        // Only the status code goes into the page data: exception messages are not meant for visitors.
+        $response = $this->inertia->render($this->component, ['status' => $status]);
         $response->setStatusCode($status);
         $response->headers->add($http?->getHeaders() ?? []);
 
