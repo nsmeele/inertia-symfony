@@ -136,4 +136,38 @@ final class InertiaTest extends TestCase
         self::assertSame(409, $response->getStatusCode());
         self::assertSame('https://example.com', $response->headers->get('X-Inertia-Location'));
     }
+
+    public function testValidationFailureRedirectsBackAndSharesErrorsOnce(): void
+    {
+        $inertia = ['X-Inertia' => 'true', 'X-Inertia-Version' => 'v1'];
+
+        $this->client->request('POST', '/users', server: [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_REFERER' => 'http://localhost/users',
+            'CONTENT_TYPE' => 'application/json',
+        ], content: json_encode(['name' => '', 'email' => 'nope']));
+
+        $response = $this->client->getResponse();
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('http://localhost/users', $response->headers->get('Location'));
+
+        $page = $this->visit('GET', '/users', $inertia);
+        self::assertArrayHasKey('name', $page['props']['errors']);
+        self::assertArrayHasKey('email', $page['props']['errors']);
+
+        $page = $this->visit('GET', '/users', $inertia);
+        self::assertSame([], $page['props']['errors']);
+    }
+
+    public function testErrorBagNestsErrors(): void
+    {
+        $this->client->request('POST', '/users', server: [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_ERROR_BAG' => 'createUser',
+            'CONTENT_TYPE' => 'application/json',
+        ], content: json_encode(['name' => '']));
+
+        $page = $this->visit('GET', '/users', ['X-Inertia' => 'true', 'X-Inertia-Version' => 'v1']);
+        self::assertArrayHasKey('name', $page['props']['errors']['createUser']);
+    }
 }

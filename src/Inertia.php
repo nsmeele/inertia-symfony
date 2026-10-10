@@ -10,8 +10,10 @@ use Nsmeele\InertiaSymfony\Props\MergeProp;
 use Nsmeele\InertiaSymfony\Props\OptionalProp;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Twig\Environment;
 
 /**
@@ -19,6 +21,8 @@ use Twig\Environment;
  */
 class Inertia
 {
+    private const string ERRORS_FLASH = 'inertia.errors';
+
     /** @var array<string, mixed> */
     private array $shared = [];
 
@@ -39,7 +43,9 @@ class Inertia
         $request = $this->requestStack->getCurrentRequest()
             ?? throw new \LogicException('Inertia::render() needs an active request.');
 
-        [$resolved, $metadata] = $this->resolver->resolve($request, $component, [...$this->shared, ...$props]);
+        $shared = ['errors' => new AlwaysProp(fn () => $this->pullErrors($request)), ...$this->shared];
+
+        [$resolved, $metadata] = $this->resolver->resolve($request, $component, [...$shared, ...$props]);
 
         $page = [
             'component' => $component,
@@ -62,6 +68,23 @@ class Inertia
     }
 
     /**
+     * Flash validation errors so the next rendered page gets them in its `errors` prop.
+     * With an error bag the errors are nested under the bag name (X-Inertia-Error-Bag).
+     *
+     * @param array<string, string> $errors
+     */
+    public function flashErrors(array $errors, ?string $bag = null): void
+    {
+        $session = $this->requestStack->getCurrentRequest()?->getSession();
+
+        if (!$session instanceof FlashBagAwareSessionInterface) {
+            throw new \LogicException('Flashing Inertia errors requires a session.');
+        }
+
+        $session->getFlashBag()->set(self::ERRORS_FLASH, [$bag !== null && $bag !== '' ? [$bag => $errors] : $errors]);
+    }
+
+    /**
      * Force a full page visit, e.g. for external redirects (409 for Inertia requests).
      */
     public function location(string $url): Response
@@ -73,6 +96,17 @@ class Inertia
         }
 
         return new RedirectResponse($url);
+    }
+
+    private function pullErrors(Request $request): array|\stdClass
+    {
+        $session = $request->hasSession() ? $request->getSession() : null;
+
+        if (!$session instanceof FlashBagAwareSessionInterface) {
+            return new \stdClass();
+        }
+
+        return $session->getFlashBag()->get(self::ERRORS_FLASH)[0] ?? new \stdClass();
     }
 
     public function getVersion(): string

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nsmeele\InertiaSymfony;
 
 use Nsmeele\InertiaSymfony\EventListener\InertiaListener;
+use Nsmeele\InertiaSymfony\EventListener\ValidationExceptionListener;
 use Nsmeele\InertiaSymfony\Twig\InertiaExtension;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -44,6 +45,10 @@ final class InertiaSymfonyBundle extends AbstractBundle
             ->public();
 
         $services->set(InertiaListener::class)
+            ->args([service(Inertia::class)])
+            ->autoconfigure();
+
+        $services->set(ValidationExceptionListener::class)
             ->args([service(Inertia::class)])
             ->autoconfigure();
 

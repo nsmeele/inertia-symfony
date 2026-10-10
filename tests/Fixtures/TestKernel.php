@@ -40,7 +40,13 @@ final class TestKernel extends Kernel
 
     protected function configureContainer(ContainerConfigurator $container): void
     {
-        $container->extension('framework', ['test' => true, 'secret' => 'test', 'http_method_override' => false]);
+        $container->extension('framework', ['test' => true, 'secret' => 'test', 'http_method_override' => false,
+            'session' => ['storage_factory_id' => 'session.storage.factory.mock_file'],
+            'validation' => ['enabled' => true],
+            'serializer' => ['enabled' => true],
+            'property_access' => ['enabled' => true],
+            'property_info' => ['enabled' => true],
+        ]);
         $container->extension('twig', ['default_path' => __DIR__.'/templates']);
         $container->extension('inertia_symfony', ['version' => 'v1']);
         $container->services()
